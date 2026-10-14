@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}</style>
+<title>Fiches SF6</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: titre puis trois entrées en grille (une par page), chacune avec sa couleur de personnage */
+:root{
+  --bg:#eef0f4; --surface:#ffffff; --ink:#141922; --muted:#5d6676; --line:#d3d8e1;
+  --ryu:#2f5bff; --mai:#c01f3c; --safe:#e0531a;
+  --f-display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1218; --surface:#181d26; --ink:#e8ecf3; --muted:#949db0; --line:#2b3240;
+  --ryu:#7d9bff; --mai:#ff6b84; --safe:#ff8a4f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#181d26; --ink:#e8ecf3; --muted:#949db0; --line:#2b3240;
+  --ryu:#7d9bff; --mai:#ff6b84; --safe:#ff8a4f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:48px 64px}
+.eyebrow{font:500 12px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(2.6rem,8vw,4.4rem);line-height:.95;margin:.3rem 0 0;text-transform:uppercase;text-wrap:balance}
+.lead{color:var(--muted);max-width:60ch;margin:.8rem 0 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:36px}
+a.card{--c:var(--ink);display:grid;grid-template-rows:auto auto 1fr auto;gap:8px;text-decoration:none;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-top:6px solid var(--c);border-radius:10px;padding:18px 20px 16px;min-width:0}
+a.card.ryu{--c:var(--ryu)} a.card.mai{--c:var(--mai)} a.card.safe{--c:var(--safe)}
+a.card:hover{border-color:var(--c);border-top-color:var(--c)}
+a.card:focus-visible{outline:2px solid var(--c);outline-offset:3px}
+.card .file{font:500 12px var(--f-mono);color:var(--muted)}
+.card h2{font-family:var(--f-display);font-weight:800;font-size:2rem;line-height:1;margin:0;text-transform:uppercase;color:var(--c)}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.card .stats{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;font-variant-numeric:tabular-nums;border-top:1px solid var(--line);padding-top:10px}
+.card .stats b{color:var(--ink)}
+.card .go{font-weight:600;color:var(--c);font-size:14px}
+footer{margin-top:40px;font-size:13px;color:var(--muted)}
+footer a{color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){a.card{transition:transform .15s,border-color .15s}a.card:hover{transform:translateY(-2px)}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Street Fighter 6</p>
+  <h1>Fiches combos et frame data</h1>
+  <p class="lead">Combos classés par condition d'entrée, frame data complète par personnage, et la liste des coups safe en garde pour tout le roster. D'après le wiki SuperCombo.</p>
+
+  <nav class="grid" aria-label="Pages">
+    <a class="card ryu" href="ryu.html">
+      <span class="file">ryu.html</span>
+      <h2>Ryu</h2>
+      <p>Arbre des combos Classic et Modern avec conditions (position, Drive, Super, Denjin), et onglet frame data.</p>
+      <span class="stats"><span><b>Combos</b> filtrables</span><span><b>73</b> coups en frame data</span></span>
+    </a>
+    <a class="card mai" href="mai.html">
+      <span class="file">mai.html</span>
+      <h2>Mai</h2>
+      <p>Arbre des combos avec et sans Flame Stock, punitions classées par désavantage adverse, et onglet frame data.</p>
+      <span class="stats"><span><b>121</b> combos</span><span><b>82</b> coups en frame data</span></span>
+    </a>
+    <a class="card safe" href="safeguard.html">
+      <span class="file">safeguard.html</span>
+      <h2>Safe en garde</h2>
+      <p>Tous les coups à -3 ou mieux en garde pour les 32 personnages, avec un classement par nombre de coups positifs.</p>
+      <span class="stats"><span><b>631</b> coups au sol</span><span><b>179</b> positifs</span></span>
+    </a>
+  </nav>
+
+  <footer>Source : <a href="https://wiki.supercombo.gg/w/Street_Fighter_6" target="_blank" rel="noopener">SuperCombo Wiki</a>, consulté le 14 octobre 2026.</footer>
+</div>
+
+</body>
+</html>
