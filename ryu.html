@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}
+.home{display:inline-flex;gap:6px;align-items:center;font:600 13px "IBM Plex Sans",system-ui,sans-serif;text-decoration:none;color:var(--accent);margin-bottom:14px}
+.home:hover{text-decoration:underline}</style>
+<title>Arbre des combos Ryu</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: en-tête compact + barre de filtres collante, puis un arbre dépliable (racine → condition → starter → combos) avec traits de liaison */
+:root{
+  --bg:#eef0f5; --surface:#ffffff; --ink:#151a2b; --muted:#5b6380; --line:#c9cede;
+  --accent:#2f5bff; --accent-soft:#e3e9ff; --denjin:#0c8fb8; --denjin-soft:#dcf3fa;
+  --drive:#1d9a5b; --drive-soft:#ddf3e7; --super:#b5480f; --super-soft:#fbe7da;
+  --corner:#7a3fd1; --corner-soft:#eee4fb;
+  --f-display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e111b; --surface:#171b29; --ink:#e7eaf5; --muted:#949bb6; --line:#2c3247;
+  --accent:#7d9bff; --accent-soft:#1f2850; --denjin:#4fd0f5; --denjin-soft:#0f3442;
+  --drive:#4fd08d; --drive-soft:#123524; --super:#ff9a5c; --super-soft:#3d2214;
+  --corner:#b98cff; --corner-soft:#2b1f45; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e111b; --surface:#171b29; --ink:#e7eaf5; --muted:#949bb6; --line:#2c3247;
+  --accent:#7d9bff; --accent-soft:#1f2850; --denjin:#4fd0f5; --denjin-soft:#0f3442;
+  --drive:#4fd08d; --drive-soft:#123524; --super:#ff9a5c; --super-soft:#3d2214;
+  --corner:#b98cff; --corner-soft:#2b1f45; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 60px}
+header h1{font-family:var(--f-display);font-weight:800;font-size:clamp(2.2rem,6vw,3.4rem);line-height:1;margin:0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+header h1 span{color:var(--accent)}
+header p{color:var(--muted);max-width:68ch;margin:.6rem 0 0}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:22px 0}
+.legend section{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.legend h2{font-family:var(--f-display);font-size:1.05rem;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px}
+.legend dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0;font-size:13.5px}
+.legend dt{font-family:var(--f-mono);font-weight:600}
+.legend dd{margin:0;color:var(--muted)}
+.legend ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--muted)}
+.legend li b{color:var(--ink);font-weight:600}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;color:var(--ink);font:600 13px var(--f-body);padding:6px 11px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.seg button+button{border-left:1px solid var(--line)}
+.bar label.chk{display:inline-flex;gap:6px;align-items:center;font-size:13.5px;cursor:pointer}
+.bar input[type=search]{flex:1 1 180px;min-width:0;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 10px;font:14px var(--f-mono)}
+.bar .tools{display:flex;gap:6px;margin-left:auto}
+.bar .tools button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 10px;font:500 13px var(--f-body);cursor:pointer}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.root{margin-top:22px}
+.root>.rootlabel{font-family:var(--f-display);font-weight:800;font-size:1.6rem;text-transform:uppercase;display:inline-flex;gap:10px;align-items:center}
+.root>.rootlabel i{width:12px;height:12px;border-radius:50%;background:var(--accent);display:inline-block}
+.tree,.tree details>.kids{list-style:none;margin:0;padding-left:22px;border-left:2px solid var(--line);margin-left:5px}
+.tree>li,.kids>li{position:relative;padding:6px 0 6px 14px}
+.tree>li::before,.kids>li::before{content:"";position:absolute;left:-2px;top:22px;width:14px;border-top:2px solid var(--line)}
+details>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"+";font:600 13px var(--f-mono);width:18px;height:18px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--accent);align-self:center}
+details[open]>summary::before{content:"−"}
+.lv1>details>summary .t{font-family:var(--f-display);font-weight:700;font-size:1.35rem;text-transform:uppercase;letter-spacing:.02em}
+.lv2>details>summary .t{font-family:var(--f-display);font-weight:700;font-size:1.1rem;text-transform:uppercase;letter-spacing:.04em;color:var(--accent)}
+summary .cond{color:var(--muted);font-size:13.5px;flex-basis:100%;padding-left:28px}
+summary .n{font:12px var(--f-mono);color:var(--muted)}
+.combo{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 12px;display:grid;gap:6px;min-width:0}
+.combo code{font-family:var(--f-mono);font-size:13.5px;font-weight:600;word-break:break-word}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;border:1px solid transparent;font-variant-numeric:tabular-nums;white-space:nowrap}
+.c-pos{background:var(--accent-soft);color:var(--accent)}
+.c-pos.corner{background:var(--corner-soft);color:var(--corner)}
+.c-dmg{background:transparent;border-color:var(--line);color:var(--ink)}
+.c-drv{background:var(--drive-soft);color:var(--drive)}
+.c-sa{background:var(--super-soft);color:var(--super)}
+.c-dj{background:var(--denjin-soft);color:var(--denjin)}
+.c-dif{background:transparent;color:var(--muted);border-color:var(--line)}
+.note{font-size:13.5px;color:var(--muted);max-width:80ch}
+.empty{color:var(--muted);font-style:italic;padding:20px 0}
+.tabs{display:flex;gap:4px;margin-top:20px;border-bottom:2px solid var(--line)}
+.tabs button{border:0;background:none;color:var(--muted);font:700 1.15rem var(--f-display);text-transform:uppercase;letter-spacing:.05em;padding:8px 16px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.fsec{margin-top:26px}
+.fsec h3{font-family:var(--f-display);font-weight:800;font-size:1.4rem;text-transform:uppercase;margin:0 0 8px;display:flex;gap:10px;align-items:baseline}
+.fsec h3 small{font:12px var(--f-mono);color:var(--muted);text-transform:none}
+.tscroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table.fd{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+.fd th{position:sticky;top:0;background:var(--surface);text-align:left;font:600 11.5px var(--f-body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 10px;border-bottom:2px solid var(--line);white-space:nowrap}
+.fd td{padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+.fd tr:last-child td{border-bottom:0}
+.fd td:first-child,.fd th:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
+.fd td:first-child{font:600 13px var(--f-mono)}
+.fd td.nm{color:var(--muted)}
+.fd td.nt{white-space:normal;min-width:220px;max-width:360px;color:var(--muted)}
+.fd .pos{color:var(--drive);font-weight:600}
+.fd .neg{color:var(--super);font-weight:600}
+.fd .kd{color:var(--accent);font-weight:600}
+.fd tbody tr:hover td{background:var(--accent-soft)}
+footer{margin-top:40px;font-size:13px;color:var(--muted)}
+footer a{color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){.combo{transition:border-color .15s}.combo:hover{border-color:var(--accent)}}
+@media (max-width:520px){.tree,.tree details>.kids{padding-left:12px}.tree>li,.kids>li{padding-left:10px}.bar .tools{margin-left:0}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<a class="home" href="index.html">← Accueil</a>
+<header>
+  <h1>Ryu <span>SF6</span> · arbre des combos</h1>
+  <p>Tous les combos de la page SuperCombo, rangés par condition d'entrée : le type de touche obtenu (normale, Counter Hit, Punish Counter, lancement, crumple…), puis la force du starter. Chaque combo indique la position requise, le coût en Drive et en Super, et s'il demande une charge Denjin en stock.</p>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button role="tab" id="tab-btn-combos" aria-selected="true" aria-controls="tab-combos" data-tab="combos">Combos</button>
+  <button role="tab" id="tab-btn-frames" aria-selected="false" aria-controls="tab-frames" data-tab="frames">Frame data</button>
+</nav>
+
+<div id="tab-combos" role="tabpanel" aria-labelledby="tab-btn-combos">
+<div class="legend">
+  <section>
+    <h2>Notation</h2>
+    <dl>
+      <dt>5 2 6 4</dt><dd>neutre, bas, avant, arrière (pavé numérique)</dd>
+      <dt>&gt;</dt><dd>cancel</dd>
+      <dt>,</dt><dd>link (ou enchaînement en juggle)</dd>
+      <dt>~</dt><dd>chain / target combo</dd>
+      <dt>dl.</dt><dd>léger délai manuel</dd>
+      <dt>KK / PP</dt><dd>version OD (2 barres de Drive)</dd>
+    </dl>
+  </section>
+  <section>
+    <h2>Coups clés</h2>
+    <dl>
+      <dt>236P</dt><dd>Hadoken</dd>
+      <dt>623P</dt><dd>Shoryuken</dd>
+      <dt>214K</dt><dd>Tatsumaki</dd>
+      <dt>236K</dt><dd>Donkey Kick (High Blade Kick)</dd>
+      <dt>214P</dt><dd>Hashogeki</dd>
+      <dt>22P</dt><dd>Denjin Charge</dd>
+    </dl>
+  </section>
+  <section>
+    <h2>Conditions</h2>
+    <ul>
+      <li><b>CH</b> Counter Hit · <b>PC</b> Punish Counter</li>
+      <li><b>PDR</b> Parry Drive Rush (1 barre) · <b>DRC</b> Drive Rush Cancel (3 barres)</li>
+      <li><b>Denjin requis</b> : une charge doit déjà être stockée</li>
+      <li><b>Donne Denjin</b> : le combo stocke une charge</li>
+      <li>SA1 236236P · SA2 214214P · SA3 236236K</li>
+    </ul>
+  </section>
+</div>
+
+<div class="bar" role="toolbar" aria-label="Filtres">
+  <div class="seg" id="ver" aria-label="Contrôles">
+    <button id="v-classic" aria-pressed="true" data-v="classic">Classic</button>
+    <button id="v-modern" aria-pressed="false" data-v="modern">Modern</button>
+  </div>
+  <div class="seg" id="pos" aria-label="Position">
+    <button id="p-all" aria-pressed="true" data-p="all">Toutes positions</button>
+    <button id="p-mid" aria-pressed="false" data-p="M">Milieu</button>
+    <button id="p-cor" aria-pressed="false" data-p="C">Coin</button>
+  </div>
+  <label class="chk"><input type="checkbox" id="f-drive"> 0 Drive</label>
+  <label class="chk"><input type="checkbox" id="f-super"> 0 Super</label>
+  <label class="chk"><input type="checkbox" id="f-denjin"> Sans Denjin</label>
+  <input type="search" id="q" placeholder="Chercher : 6HK, PDR, 623MP…" aria-label="Chercher un combo">
+  <div class="tools"><button id="open-all">Tout déplier</button><button id="close-all">Replier</button></div>
+  <span class="count" id="count"></span>
+</div>
+
+<div class="root">
+  <div class="rootlabel"><i></i><span id="rootname">Ryu · Classic</span></div>
+  <ul class="tree" id="tree"></ul>
+  <p class="empty" id="empty" hidden>Aucun combo ne correspond à ces filtres.</p>
+</div>
+</div>
+
+<div id="tab-frames" role="tabpanel" aria-labelledby="tab-btn-frames" hidden>
+  <div class="legend">
+    <section>
+      <h2>Lire les colonnes</h2>
+      <dl>
+        <dt>Startup</dt><dd>frames avant le premier hit (inclus)</dd>
+        <dt>Hit / Garde</dt><dd>avantage sur touche / en garde</dd>
+        <dt>PC</dt><dd>avantage sur Punish Counter</dd>
+        <dt>Perf. Parry</dt><dd>désavantage si Perfect Parry</dd>
+        <dt>DRC</dt><dd>avantage après Drive Rush Cancel (hit / garde)</dd>
+      </dl>
+    </section>
+    <section>
+      <h2>Abréviations</h2>
+      <dl>
+        <dt>L H LH T</dt><dd>low, high (overhead), mid, choppe</dd>
+        <dt>Chn Sp SA TC</dt><dd>chain, cancel special, Super, target combo</dd>
+        <dt>KD / HKD</dt><dd>knockdown / hard knockdown</dd>
+        <dt>( )</dt><dd>variante : whiff, hit tardif, dernier hit…</dd>
+        <dt>D.</dt><dd>version avec charge Denjin</dd>
+      </dl>
+    </section>
+    <section>
+      <h2>Vitals</h2>
+      <dl>
+        <dt>10000</dt><dd>points de vie</dd>
+        <dt>0.8</dt><dd>portée de choppe</dd>
+        <dt>0.047 / 0.032</dt><dd>vitesse de marche avant / arrière</dd>
+        <dt>19 / 23</dt><dd>durée dash avant / arrière (frames)</dd>
+        <dt>4+38+3</dt><dd>saut (décollage + air + atterrissage)</dd>
+      </dl>
+    </section>
+  </div>
+  <div class="bar" role="toolbar" aria-label="Filtres frame data">
+    <div class="seg" id="fsec" aria-label="Catégorie">
+      <button id="fs-all" aria-pressed="true" data-s="all">Tout</button>
+      <button id="fs-n" aria-pressed="false" data-s="0">Normaux</button>
+      <button id="fs-d" aria-pressed="false" data-s="1">Système</button>
+      <button id="fs-s" aria-pressed="false" data-s="2">Spéciaux</button>
+      <button id="fs-sa" aria-pressed="false" data-s="3">Supers</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="f-safe"> Safe en garde (≥ -3)</label>
+    <input type="search" id="fq" placeholder="Chercher : 236HK, Hashogeki…" aria-label="Chercher un coup">
+    <span class="count" id="fcount"></span>
+  </div>
+  <div id="frames"></div>
+</div>
+
+<footer>Source : <a href="https://wiki.supercombo.gg/w/Street_Fighter_6/Ryu/Combos" target="_blank" rel="noopener">SuperCombo Wiki – Ryu/Combos</a>, <a href="https://wiki.supercombo.gg/w/Street_Fighter_6/Ryu/Frame_data" target="_blank" rel="noopener">Ryu/Frame data</a> et <a href="https://wiki.supercombo.gg/w/Street_Fighter_6/Ryu" target="_blank" rel="noopener">Ryu</a>. Dégâts et coûts tels qu'indiqués sur le wiki ; les « / » séparent les variantes dans l'ordre.</footer>
+</div>
+
+<script>
+/* combo : [notation, position, dégâts, drive, super, difficulté, denjin, note]
+   position : P partout, M milieu, C coin (combinables "P/C")
+   denjin : 0 aucun, 1 requis, 2 donne une charge, 3 optionnel */
+const DATA = {
+classic: [
+ {t:"Touche normale", c:"Le coup touche sans Counter Hit : confirms classiques.", g:[
+  {t:"Starter Light", c:"Chaîne de lights confirmée", k:[
+   ["2LK ~ 2LP ~ 5LP > 214LK / 623HP","P","1190 / 1490","0","0","Très facile",0,"Le confirm light de base."],
+   ["2LK ~ 2LP ~ 2LP > 214MK / 236LK","P","1250 / 1310","0","0","Très facile",0,"Finir par 2LP (plus de hitstun) pour atteindre MK Tatsu ou LK Donkey Kick. LK Donkey Kick laisse le temps de charger Denjin au milieu, safe jump au coin."],
+   ["2LK ~ 2LP ~ 5LP > 214KK, 623HP","C","1950","2","0","Très facile",0,"Extension OD contre un adversaire au coin."]]},
+  {t:"Starter Medium", c:"2MK, 5MP, 2MP", k:[
+   ["2MK > 214MK / 236MK / (236KK, 6HK > 214K)","P","1300 / 1460 / 2155","0 / 2","0","Très facile / Facile",0,"Idéal sur whiff punish. MK Donkey Kick permet de charger Denjin, MK Tatsu porte vers le coin."],
+   ["2MK > 236LP / 236MP / 236HP","P","980","0","0","Très facile",0,"Low forward Hadoken : 236HP est un vrai blockstring, LP/MP sont safe contre Drive Impact."],
+   ["5MP, 2MP > 214MK / 236MK / 623HP","P","2000 / 2160 / 2320","0","0","Très facile",0,"Fonctionne même sans être collé."],
+   ["5MP, 4HP > 236HK / 623HP","P","2440 / 2520","0","0","Très facile",0,"Il faut être au contact (ex. après cross-up j.MK). 4HP est le seul normal qui combote en HK Donkey Kick."]]},
+  {t:"Starter Heavy", c:"5HK, 6HK, 6HP", k:[
+   ["5HK, 2MK > 214MK / 236MK / 623HP","P","2200 / 2360 / 2520","0","0","Facile",0,"5HK rate un adversaire accroupi ; garanti après crumple de Drive Impact."],
+   ["6HK > 214K / 214KK","P","1700 / 2300","0 / 2","0","Difficile",0,"Confirm sur un seul coup ; 6HK passe au-dessus des lows en fin de startup."],
+   ["6HP, 2MP > 214MK / 623HP","P","2200 / 2520","0","0","Très facile",0,"Solar Plexus permet le link en 2MP."],
+   ["6HP, 2MP, 5LK > 214MK / 236LK","P","2340 / 2410","0","0","Facile",0,"LK Donkey Kick : Denjin safe ou safe jump au coin."],
+   ["6HP, 2MP > 236KK, 4HK > 623HP / 236LK / 236MK","M","3070 / 2905 / 2960","2","0 (SA3 possible)","Moyen",0,"Les fins Donkey Kick laissent charger Denjin ; toutes se cancel en SA3."]]}
+ ]},
+ {t:"Counter Hit", c:"Le starter interrompt un coup adverse : plus d'avantage, links plus lourds.", g:[
+  {t:"Starter Light", c:"CH 2LP / 5LP / 5LK", k:[
+   ["CH 2LP/5LP, 5LK > 236LK","P","1370","0","0","Facile",0,"À confirmer sur le CH (236LK est -11 en garde)."],
+   ["CH 2LP/5LP, 2MP/5MP > 236MK / (236KK, 4HK > 623HP)","P / M","1680 / 2250","0 / 2","0","Facile",0,"MK Donkey Kick laisse charger Denjin (sauf contre la SA3 de Cammy)."],
+   ["CH 2LP/5LP, 2MP > Denjin 214P, 214MK / 236MK / 623HP","P / C","2000 / 2120 / 2240","0","0","Facile",1,"Hashogeki chargé Denjin lance l'adversaire ; 623HP seulement au coin."]]},
+  {t:"Starter Medium", c:"CH 5MP", k:[
+   ["CH 5MP, 2HP > 214MK / 236MK / (236KK, 4HK > 623HP)","P","2320 / 2480 / 3190","0 / 2","0","Facile",0,"Si trop loin, remplacer 2HP par 2MK."],
+   ["CH 5MP, 2HK, dash, meaty 5HP","P","1620","0","0","Facile",0,"Montre l'oki après 2HK : 5HP meaty à +2 en garde."]]},
+  {t:"Starter Heavy", c:"CH 6HP / 5HP", k:[
+   ["CH 6HP, 4HP > 236HK, (623MP)","P / C","2800 / 3640","0","0","Facile",0,"6HP passe à +8 sur CH ; 2MK plus fiable que 4HP. Juggle 623MP au coin."],
+   ["CH 5HP, 5LK > 236LK / 214LK / 214MK","P","2140 / 1980 / 2060","0","0","Facile",0,"5HP en meaty : excellente oki au coin."]]}
+ ]},
+ {t:"Punish Counter", c:"Punition d'un coup en récupération (whiff, DP bloqué, Perfect Parry…).", g:[
+  {t:"Starter Light", c:"PC 5LP / 5LK", k:[
+   ["PC 5LP, 2MK > 236MK / 623HP / (236KK, 4HK > 623HP)","P / M","1600 / 1740 / 2170","0 / 2","0","Moyen",0,"Contre les coups à -4 espacés (ex. divekick de Juri)."],
+   ["PC 5LK > 214MK / (236KK, 4HK > 623HP) / (Denjin 214PP, dash, 2HP > 623HP)","P","1160 / 2030 / 2400","0 / 2","0","Moyen / Difficile",3,"Contre les coups à -5 hors de portée des jabs. La dernière variante demande Denjin."]]},
+  {t:"Starter Medium", c:"PC 5MP", k:[
+   ["PC 5MP, 5HP ~ HK, Denjin Charge","P","2320","0","0","Facile",2,"Le target combo se cancel en Denjin (bas + poing). Knockdown +7, meaty au coin."],
+   ["PC 5MP, 5HP > (623HP / 236KK, 4HK > 623HP)","P","2640 / 3190","0 / 2","0","Très facile",0,"Combo simple et lourd."]]},
+  {t:"Starter Heavy", c:"PC 5HK / 6HK / 236HK / Heavy Punch", k:[
+   ["PC 5HK, dash, 2HP > 623HP / (236KK, 623HP)","P / M","3000 / 3430","0 / 2","0","Facile",0,"PC 5HK fait crumple : punition idéale de DP bloqué ou de choppe ratée (shimmy)."],
+   ["PC 5HK, 4HP > 236HK, 623MP","C","3760","0","0","Moyen",0,"Meilleure punition au coin sans ressources."],
+   ["PC 6HK, 5LK > 236LK / (214KK, 623HP)","P / C","2140 / 3040","0 / 2","0","Moyen",0,"6HK passe au-dessus des lows : PC fréquent contre un low."],
+   ["PC 236HK, 6HK > (214K / 214KK, 236236P / 236236K)","C","3080 / 4660 / 5760","0 / 2","0 / 1 / 3","Moyen",0,"6HK > 214K juggle pendant la roulade du PC 236HK."],
+   ["PC 5HP/2HP/4HP > 214HP, 214MK / 236MK","P","2560 / 2720","0","0","Moyen",0,"HP Hashogeki ne combote que sur PC. Idéal après Perfect Parry (4HP sur lights, 5HP sur mediums)."],
+   ["PC 5HP/2HP/4HP > 214HP, PDR 5HP > 214LP, 2HK","P","3176","1","0","Moyen",0,""],
+   ["PC 5HP/2HP/4HP > 214HP, 214LP, 623LP","C","3090","0","0","Moyen",0,""],
+   ["PC 5HP/2HP/4HP > 214HP, PDR 5HP > 214LP, 623HP","C","3431","1","0","Moyen",0,""]]},
+  {t:"Dos au coin : changer de côté", c:"Ryu au milieu, dos au coin", k:[
+   ["PC DI/5HK, dl. 5HP > 236KK, dash avant 623LP","M","2765 / 3235","2","0","Moyen",0,"Le délai laisse l'adversaire passer en état aérien pendant le crumple."],
+   ["PC 5HP/2HP/4HP > 214HP, PDR 2HP > 236KK, dash avant 623LP","M","3282","3","0","Moyen",0,""],
+   ["PC 5HP/2HP/4HP > 214HP, PDR 5MP > 214HK","M","2876","1","0","Moyen",0,""]]}
+ ]},
+ {t:"Lancement Hashogeki", c:"Quatre façons de lancer avec 214P. Types 1 et 2 : timing large. Types 3 et 4 : lancement faible, links serrés.", g:[
+  {t:"Types 1 et 2 : HP Hasho ou Hasho Denjin", c:"1 = 214HP sur PC ou après PDR 4HP/2HP · 2 = 214P chargé Denjin, depuis tout Medium cancelable", k:[
+   ["HP/DC Hasho, (214MK / 236MK / PDR, 5HP > 214LP, 2HK)","P","1800 / 2000 / 2487","0 / 1","0","Facile",3,"Fiable quel que soit l'espacement."],
+   ["HP/DC Hasho, PDR, (4HK > 214MK, dash / 5LP, 6HK > 214K, safe jump)","P","2160","1","0","Facile",3,"4HK fait rebondir au sol ; la variante 6HK donne un safe jump près du coin."],
+   ["HP/DC Hasho, PDR, 5HP > DRC, 4HP > 236HK (> 236236K)","P","4791","4","0 / 3","Moyen",3,"Au coin, finir 623MP > SA3 pour 5403."],
+   ["HP/DC Hasho, 214LP, 623LP (> 236236K)","C","2380 / 4780","0","0 / 3","Moyen",3,"Type 1. Très bon sans ressources, excellente porte vers la Super."],
+   ["HP/DC Hasho, PDR, 5HP > 214MP, 623HP (> 236236K)","C (ou proche)","2850 / 4850","1","0 / 3","Moyen",3,"La route au coin la plus rentable pour 1 barre."]]},
+  {t:"Types 3 et 4 : CH LP / MP Hasho", c:"Counter Hit sur 214LP (safe en garde) ou 214MP (punissable)", k:[
+   ["CH LP/MP Hasho, (PDR, 2MP > 214MK ou 236MK / 236236P)","P","2030 / 2166 / 2840","0 / 1","0 / 1","Moyen / Facile",0,"Lancement faible : il faut des coups rapides."],
+   ["CH LP/MP Hasho, PDR, 2MP > DRC, 5HP > 236HK (> 236236K)","P","4661","4","3","Moyen",0,""],
+   ["CH LP/MP Hasho, PDR, 2MP > DRC, dl. 5HP > 214MP, 623HP (> 236236K)","C (ou proche)","3080 / 5080","4","0 / 3","Difficile",0,"Le délai après le DRC évite que l'adversaire rebondisse trop haut."],
+   ["CH LP/MP Hasho, PDR, 2MP > Denjin 214HP, PDR, 5HP > DRC, 5HP > DRC, dl. 5HP > 236HK, 623HP > 236236K","C (ou proche)","5902 / 6022","6","3","Très difficile",1,"Max damage de cette route. Version simplifiée : 5HP, 623HP > SA3 à la fin."]]}
+ ]},
+ {t:"Drive Rush", c:"Combos qui dépensent de la Drive pour avancer ou prolonger.", g:[
+  {t:"Parry Drive Rush (PDR)", c:"1 barre par PDR", k:[
+   ["PDR, 6MP, 5MP > 214MK / 236MK / 623HP","P","2000 / 2160 / 2320","1","0","Moyen",0,"Moitié haute du mix-up : l'overhead est +3 en garde."],
+   ["PDR, 2MK, 5LK > 214MK / 236LK","P","1440 / 1510","1","0","Moyen",0,"Moitié basse : 2MK est -2 en garde."],
+   ["Medium > 236KK, PDR, 5MP, 6HK > 214K, safe jump","P","2180 / 2632","3","0","Moyen",0,"Finit sur un knockdown +42 et un safe jump."],
+   ["Starter > 214KK, PDR, 5MP/2MP > 214MP, 623HP","C","2650 – 3550","3","0","Moyen",0,"Extension de base OD + PDR au coin."]]},
+  {t:"Drive Rush Cancel (DRC)", c:"3 barres par DRC, depuis un normal cancelable", k:[
+   ["Light > DRC, 5LP, 4HP > 236HK / 623HP / (236HK, 623MP)","P / C","1639 / 1690 / 2143","3","0","Moyen",0,"Le dernier juggle 623MP est réservé au coin."],
+   ["Medium/Heavy > DRC, 5HP, 4HP > 236HK / 623HP","P","2179 – 3130","3","0","Moyen",0,"Le classique. Au coin, préférer HK Donkey Kick pour juggle ensuite."],
+   ["PC (DI ou 5HK), 5HP > DRC, 5HK > 5HP > DRC, 5HK > 5HP > 623HP > 236236K","P","5539 / 6235","6","3","Facile",0,"Le vidage de jauge standard, partout sur l'écran."],
+   ["PC (DI ou 5HK), 5HP > DRC, 5HK, 5HP > DRC, 5HP, 4HP > 236HK, 623MP > 236236K","C","5676 / 6450","6","3","Moyen",0,"Au milieu, remplacer 236HK, 623MP par 623HP."],
+   ["Starter > 214KK, PDR, 2MP, DRC, 2HP, 236HK, 623HP > 236236K","C","4884 / 5931","6","3","Moyen",0,"Route optimale après OD Tatsu au coin ; accessible depuis les lights."]]}
+ ]},
+ {t:"Super Arts", c:"Routes vers SA1 (236236P), SA2 (214214P) et SA3 (236236K). Avec Denjin, SA1 et SA2 deviennent leur version Denjin, plus forte.", g:[
+  {t:"SA1 · Shinkuu Hadoken", c:"1 barre de Super", k:[
+   ["236PP, 236236P","C","2400","2","1","Moyen",0,"L'adversaire doit toucher le mur après l'OD Hadoken."],
+   ["214KK, 236236P","C","3000","2","1","Facile",0,"OD Tatsu combote depuis les lights."],
+   ["(214HP ou Denjin 214P ou CH 214LP/MP), 236236P","P","variable","variable","1","variable",3,"Fin possible de nombreuses routes Hashogeki."],
+   ["PC 236HK > 236236P","P","3560","0","1","Facile",0,"Punit les coups à -30 ou pire (DP, Supers)."],
+   ["Heavy cancelable > DRC 5HK, 5HK, 236236P","P","3357","3","1","Moyen",0,"Bonne fin économique pour clore une manche."]]},
+  {t:"SA2 · Shin Hashogeki", c:"2 barres ; se charge en maintenant (3 niveaux)", k:[
+   ["Medium/Heavy > Denjin 214PP > 214214P","P","3120 – 4000","2","2","Moyen",3,"Sans Denjin, relâcher au niveau 2 ; avec Denjin, le niveau 3 passe."],
+   ["Starter > 236KK > 214214P","M","3090 – 3850","2","2","Moyen",0,"Accès au niveau 3 sans Denjin."],
+   ["Medium/Heavy > Denjin 214PP > 214214P, PDR, 2HP > 623HP","C","4236 – 5186","3","2","Difficile",1,"SA2 au milieu du combo, chargée niveau 3 pendant le crumple."]]},
+  {t:"SA3 · Shin Shoryuken", c:"3 barres ; Critical Art à faible vie", k:[
+   ["Medium/Heavy > 236KK, 623HP > 236236K","M","4050 – 4950","2","3","Moyen",0,"Faire le 623HP le plus tard possible sinon la SA3 passe dessous."],
+   ["Medium/Heavy > DRC, 5HP, 4HP > 236HK > 236236K","P","4179 – 5079","3","3","Moyen",0,"Fiable sur adversaire au sol."],
+   ["Medium/Heavy > DRC, 5HP, 4HP > 236HK, 623MP, 236236K","C","4683 – 5403","3","3","Difficile",0,""],
+   ["j.HP/j.HK, 5HP > DRC, 5HK, 5HP > DRC, 5HP, 4HP > 236HK, 623MP, 236236K","C","6145","6","3","Difficile",0,"Au milieu : remplacer la fin par 623HP > SA3."]]}
+ ]},
+ {t:"Drive Impact, Wall Splat, Stun", c:"Situations de crumple ou d'étourdissement.", g:[
+  {t:"Crumple Drive Impact", c:"PC Drive Impact ou Counter DI", k:[
+   ["PC DI, 5HK, 2MK > 623HP / (Denjin 214P, PDR, 5HP > 214LP, 2HK)","P","2870 / 3309","0 / 1","0","Facile",3,"623HP = meilleur combo sans ressources ; cancel SA3 possible."],
+   ["PC DI, 6HP, 2MP, 5LK > 236LK","P","2750","0","0","Facile",0,"Finit en LK Donkey Kick : Denjin safe ou safe jump."],
+   ["PC DI, dash, 2HP > 214MP, 623HP","C","3000","0","0","Facile",0,""],
+   ["PC DI, 6HP, 2MP > Denjin 214P, 214LP, 623LP","C","3290","0","0","Moyen",1,"Énorme sans Drive ; cancel SA3 possible."],
+   ["PC DI, saut neutre, 8HP, 6HK > 214KK, (623P / 236236P / 236236K)","P (suite au coin)","3060 / 3340 / 3760 / 5060","2","0 / 1 / 3","Moyen",0,"Pour quand on n'a pas Denjin."],
+   ["PC DI, 5HK, 2MK > Denjin 214PP, 5HP > 623HP","P","3470","2","0","Facile",1,""],
+   ["PC DI, 5HK, 2MK > Denjin 214PP, dash, 2HP > 214LP, 623HP","C","3610","2","0","Moyen",1,""]]},
+  {t:"Wall Splat", c:"Adversaire collé au mur", k:[
+   ["Wall Splat, 5HP > 214MP, 623HP","C","2176","0","0","Facile",0,"Max sans rien dépenser."],
+   ["Wall Splat, 5HP > Denjin 214P, j.MP (2e hit) > (214K / 214KK, SA1 ou SA3)","C","2232 / 3288 / 4568","0 / 2","1 / 3","Moyen",1,"Pour garder Denjin : 5HP > 236HK (1680 + safe jump)."],
+   ["Wall Splat, 5HP > Denjin 214P, PDR, 4HP > 236MK, 623MP","C","3320","1+","0","Difficile",1,"623MP au frame près ; version facile avec 5MP/2MP et 623LP."]]},
+  {t:"Stun", c:"On commence par charger Denjin (DC) gratuitement", k:[
+   ["DC, j.HP, 4HP > 236HK, 623MP","C","2780","0","0","Moyen",2,"Le meilleur sans jauge ; garde la charge Denjin."],
+   ["DC, j.HP, 5HP > Denjin 214PP, dash/marche, 5HP > 214MP, 623HP > SA3","C","5020","2","3","Facile",2,"Le meilleur rapport dégâts / Drive."],
+   ["DC, j.HK, 5HK, 2MK > 214KK, PDR, 5MP > Denjin 214P, j.MP (2e hit) > 214KK, SA1 ou SA3","C","3512 / 4912","5","1 / 3","Difficile",2,"Ne met pas en Burnout si plus de 5 barres."],
+   ["DC, j.HK, 5HP > Denjin 214PP, 5HP > DRC, 5HK, 5HP > DRC, 5HP, 4HP > 236HK, 623MP > SA3","C","5186","6","3","Moyen",2,"Tout-en-un : Burnout garanti ensuite."],
+   ["DC, 214214P chargée à fond, PDR, 2HP > DRC, 2HP > 236MK, 623HP / 236236P","C","4780 / 4984","~4,5","2 / 3","Moyen",2,"Route niveau 2, sans cinématique."]]}
+ ]},
+ {t:"Anti-air j.MP", c:"j.MP air-to-air met l'adversaire en juggle ; la suite dépend du moment du saut.", g:[
+  {t:"Selon le moment du contact", c:"Montée, sommet ou descente du saut", k:[
+   ["j.MP montant (2e hit) > 214K / 214KK (coin : 623HP / 236236P / 236236K)","P / C","1600 / 2200 (2720 / 3500 / 4800)","0 / 2","0 / 1 / 3","Facile / Moyen",0,"Le plus simple en match, sur réaction."],
+   ["j.MP au sommet du saut, atterrir, 623HP / 236236K","P","2100 / 4700","0","0 / 3","Moyen",0,"Ne pas cancel le j.MP. 623LP si l'adversaire est trop bas."],
+   ["j.MP en fin de sommet, saut avant j.MP (2e hit) > 214K / 214KK / 236LK > SA3","M","2120 / 2600 / 4600","0 / 2","0 / 3","Difficile",0,""],
+   ["j.MP en fin de sommet, saut avant j.MP > 214K / 214KK, 236236P / 236236K / 214LP, 623LP > 236236K","C","3700 / 4800 / 4680","0 / 2","0 / 1 / 3","Difficile",0,""]]}
+ ]},
+ {t:"Trades", c:"Forcer un échange de coups favorable contre un normal 4 frames.", g:[
+  {t:"Setups de trade", c:"Le trade laisse Ryu au sol avec l'avantage", k:[
+   ["5LP > CH 214LP (trade) → PDR, 5HP…","P","lancement","1+","0","Moyen",0,"Frametrap intégré ; PDR, 5HP > 623HP ou 236HK. Au coin : PDR, 5HP > 214MP, 623HP."],
+   ["Choppe avant, PDR, CH 5HP (trade) → 5HP, 2MK, 2HK","P","+18 / +14","1+","0","Moyen",0,"Le link 5HP après le trade vaut 1760 seul."],
+   ["Action à +1/+2/+3 en garde, CH 623LP/MP/HP (trade)","P","variable","0","0","Moyen",0,"Le Shoryuken reste au sol au début ; suite selon version et position."]]}
+ ]},
+ {t:"Punitions max damage", c:"Toutes les ressources, sur Punish Counter.", g:[
+  {t:"Sans Denjin", c:"", k:[
+   ["PC 214PP, 4HP (> DRC, 5HK, 5HP)x2 > 623HP > 236236K","P","6475 / 6725 (CA)","6","3","Difficile",0,"Meilleur starter PC au milieu sans Denjin."],
+   ["PC 214PP, 4HP > 214KK, PDR, 2MP, DRC, 2HP, 236HK, 623HP > 236236K","C","6704 / 6954 (CA)","6","3","Difficile",0,""],
+   ["PC 5HK, 5HP, DRC, 5HK, dl. 5HP (> DRC, 5HK, 5HP)x2, 623HP > 236236K","P","6503 / 6753 (CA)","7","3","Très difficile",0,"Le combo « microwalk »."]]},
+  {t:"Avec Denjin", c:"Charge Denjin en stock", k:[
+   ["PC 5HK, 5HP > Denjin 214PP, 5HP (> DRC, 5HK, 5HP)x2, 623HP > 236236K","P","6619 / 6869 (CA)","6","3","Moyen",1,"Attention : 5HK rate un adversaire accroupi."],
+   ["PC 5HK, 5HP > Denjin 214PP, 5HP > 214KK, PDR, 2MP > DRC, 2HP > 236HK, 623HP > 236236K","C","6767 / 7017 (CA)","6","3","Difficile",1,"Le max sur PC 5HK au coin."],
+   ["PC 5HK, 5HP > Denjin 214PP > 214214P, PDR, 2HP > DRC, 2HP > 236MK, 623HP / 236236P","C","6156 / 6406","6","2 / 3","Difficile",1,"Route niveau 2 ; un petit délai après la SA2 évite le Burnout."],
+   ["PC 236HK, Denjin 214HP, PDR, 4HP > DRC, 2HP > DRC, dl. 2HP > 236HK, 623HP > 236236K","C","6806 / 7056 (CA)","6","3","Difficile",1,"Version facile : 236MK à la fin."],
+   ["PC 236HK, Denjin 214214P (niv. 1), PDR~2HP > DRC, dl. 5MP, PDR~4HP > DRC~2HP > 236HK, 236236P","C","7171","6","3","Très difficile",1,"Le max absolu sur PC 236HK."],
+   ["PC 236HK, Denjin 214214P (niv. 1), PDR~2HP > DRC, dl. 2HP > DRC~2HP > 236HK, 236236P","C","7118","6","3","Difficile",1,"Version plus simple, sans PDR brut."]]}
+ ]}
+],
+modern: [
+ {t:"Touche normale", c:"A[ ] = bouton Assist ; S = bouton Special.", g:[
+  {t:"Starter Light", c:"", k:[
+   ["2L ~ 2L ~ 5L > 623H / 6S","P","1490 / 1322","0","0","Très facile",0,"Le 2LP n'existe qu'en chaîne."],
+   ["2L ~ 2L ~ 2L > 4S / (A[4S], 623H)","P / C","1130 / 1830","0 / 2","0","Très facile",0,""],
+   ["5L ~ 5L ~ 2L > 4S","P","1230","0","0","Très facile",0,""],
+   ["A[L ~ L]","P","1180","0","0","Très facile",0,"Seul accès à 236LK (safe jump au coin)."],
+   ["(A[L] / 5L ~ 2L) > 214L (> 236236H)","P","860 / 1030 / 3030","0","0 / 3","Très facile",0,"Tout light cancelable > 214L confirme en SA3."]]},
+  {t:"Starter Medium", c:"", k:[
+   ["2M > (4S / 2S / A[2S] > 4H > 623H)","P / M","1140 / 1268 / 2042","0 / 2","0","Très facile",0,""],
+   ["2M > 236L / 236M / 236H / 236PP","P","980 / 1140","0 / 2","0","Très facile",0,"Hadoken manuel : 236H vrai blockstring."],
+   ["5M, A[M] > (4S / 2S / 623H / A[2S], 4H > 623H)","P","1840 / 1968 / 2320 / 2742","0 / 2","0","Très facile",0,""],
+   ["A[M ~ M ~ M] (Denjin, coin : 6H > 214X)","P","3730 / 4900","0 / 2","2","Très facile",3,"Auto-combo = 2MP > OD Hashogeki > SA2."],
+   ["A[M], (A[L ~ L] / A[L] > 4S)","P","1780 / 1540","0","0","Très facile",0,""]]},
+  {t:"Starter Heavy", c:"", k:[
+   ["A[H ~ H ~ H ~ H]","P","4440","0","3","Très facile",0,"Auto-combo = A[H], A[M] > 214M > SA3."],
+   ["A[H], A[M], (A[L ~ L] / A[L] > 4S)","P","2410 / 2200","0","0","Facile",0,""],
+   ["A[H], A[M] > A[2S], 4H > 623H","M","2942","2","0","Facile",0,""],
+   ["A[H], A[M] > Denjin 214H, (4S / 2S)","P","2600 / 2712","0","0","Facile",1,""],
+   ["A[H], A[M] > Denjin 214XX, dash, 2H > 623H","P","3440","2","0","Facile",1,""],
+   ["6H > 214X","P","1700","0","0","Moyen",0,"À confirmer, très punissable sinon."]]}
+ ]},
+ {t:"Counter Hit", c:"", g:[
+  {t:"Starter Light", c:"CH 5L / CH 214L", k:[
+   ["CH 5L, (A[L ~ L] / A[L] > 4S)","P","1160 / 1370","0","0","Facile",0,""],
+   ["CH 5L, A[M] > (2S / A[2S], 4H > 623H / A[2S], 6H > 214X)","P / M","1512 / 2138 / 2133","0 / 2","0","Facile",0,""],
+   ["CH 214L, PDR A[M] > 623H","P","2320","1","0","Moyen",0,"214L lance sur CH ; c'est un frametrap après 2L ou A[L]."],
+   ["CH 214L, PDR A[M] > 4S","P","1890","1","0","Moyen",0,""],
+   ["CH 214L, PDR 5M > 214M, 623H (> 236236H)","C","2720 (4720)","1","0 (3)","Moyen",0,""],
+   ["Trade CH 214L, PDR 5H > 623H","P","2472","1","0","Moyen",0,""],
+   ["Trade CH 214L, PDR 5H > 214M, 623H (> 236236H)","C","2890 (4890)","1","0 (3)","Moyen",0,""]]},
+  {t:"Starter Medium", c:"CH 5M", k:[
+   ["CH 5M, 2H > (4S / 2S / A[2S] > 4H > 623H)","P","2160 / 2288 / 3062","0 / 2","0","Facile",0,"Si trop loin, remplacer 2H par 2M."]]},
+  {t:"Starter Heavy", c:"CH 5H", k:[
+   ["CH 5H, (A[L ~ L] / A[L] > 4S)","P","2140 / 1900","0","0","Facile",0,""],
+   ["CH 5H, A[L] > A[4S], 623H / 236236L","C","2880 / 3300","2","0 / 1","Facile",0,""]]}
+ ]},
+ {t:"Punish Counter", c:"", g:[
+  {t:"Starter Light", c:"", k:[
+   ["PC 5L, 2M > (4S / 623H / A[2S], 4H > 623H)","P / M","1320 / 1740 / 2058","0 / 2","0","Facile",0,""],
+   ["PC A[L] > (2S / A[2S], 4H > 623H / Denjin 214XX, dash, 2H > 623H)","P / M","1128 / 1902 / 2500","0 / 2","0","Facile",3,""]]},
+  {t:"Starter Medium", c:"", k:[
+   ["PC 5M, 5H ~ H ~ 2X","P","2320","0","0","Très facile",2,"Stocke Denjin, bonne oki au coin."],
+   ["PC 5M, 5H > (623H / A[2S], 4H > 623H)","P","2640 / 3062","0 / 2","0","Très facile",0,""]]},
+  {t:"Starter Heavy", c:"", k:[
+   ["PC 5H, 2M > (4S / 2S)","P","2100 / 2228","0","0","Moyen",0,""],
+   ["PC 5H, 2M > A[4S], 623H","C","3080","2","0","Moyen",0,""],
+   ["PC 5H/2H > 214H, (4S / 2S)","P","2400 / 2528","0","0","Moyen",0,"Plus simple après Perfect Parry."],
+   ["PC 5H/2H > 214H, 214L, 623L","C","3090","0","0","Moyen",0,""],
+   ["PC 5H/2H > 214H, PDR 5H/4H > 623H (> 236236H)","P","3130 (5130)","1","0 (3)","Moyen",0,""],
+   ["PC 5H/2H > 214H, PDR [5H ~ H] > Denjin Charge","P","2894","1","0","Moyen",2,""],
+   ["PC 5H/2H > 214H, PDR 2H > DRC 6H > 214X, safe jump","Près du coin","3235","4","0","Moyen",0,""],
+   ["PC 5H/2H > 214H, PDR 5H > 214M, 623H (> 236236H)","C","3490 (5490)","1","0 (3)","Moyen",0,""],
+   ["PC 6H, (A[L ~ L] / A[L] > 4S)","P","2140 / 1900","0","0","Moyen",0,""]]}
+ ]},
+ {t:"Drive Rush", c:"", g:[
+  {t:"Parry Drive Rush", c:"", k:[
+   ["PDR 6M, 5M/A[M] > 4S / 2S / 623H","P","1840 / 1968 / 2320","1","0","Très facile",0,"Overhead +3 en garde."],
+   ["PDR 2M, A[L ~ L] / A[L] > 4S","P","—","1","0","Facile",0,"Low -2 en garde."],
+   ["Medium > A[2S], PDR 5M, 6H > 214X, safe jump","M (vers le coin)","2052 / 2472","3","0","Moyen",0,""],
+   ["Starter > A[4S], PDR 5M, 214M, 623H","C","2004 / 3194","3","0","Moyen",0,""]]},
+  {t:"Drive Rush Cancel", c:"", k:[
+   ["Light > DRC 5L, 5M, (A[L ~ L]) / (A[M] > 623H)","P","1432 / 1609","3","0","Facile",0,""],
+   ["Medium/Heavy > DRC 5H, (5M/A[M] > 623H) / (5M, A[L ~ L])","P","2013 – 2714","3","0","Facile",0,""],
+   ["PC (DI / A[H]) > (DRC 5H, 5M)x2 > 623H > 236236H","P","5268 / 5794","6","3","Facile",0,""],
+   ["Starter > A[4S], PDR A[M] > DRC 2H > 2S, 623H > 236236H","C","4132 – 5548","6","3","Moyen",0,"Optimal après OD Tatsu au coin."]]}
+ ]},
+ {t:"Drive Impact, Wall Splat, Stun", c:"", g:[
+  {t:"Crumple Drive Impact", c:"", k:[
+   ["A[H], A[M] > 623H","M","2860","0","0","Facile",0,""],
+   ["A[H], A[M] > A[2S], 4H > 623H > 236236H","M","5074","2","3","Facile",0,""],
+   ["A[H], A[M] > Denjin 214XX, dash, 2H > 623H","M","3460","2","0","Moyen",1,""],
+   ["A[H], A[M] > Denjin 214H, PDR 5H > 2S > 236236H","M","5160","1","3","Moyen",1,""],
+   ["dash, 2H > 214M, 623H","C","3000","0","0","Moyen",0,""],
+   ["A[H], A[M] > A[4S], PDR A[M] > DRC 2H > 2S, 623H > 236236H","C","5502","6","3","Moyen",0,""],
+   ["A[H], A[M] > Denjin 214H, 214L, 623L","C","3290","0","0","Moyen",1,""],
+   ["A[H], A[M] > Denjin 214XX, 5H > A[4S], PDR A[M] > DRC 2H > 2S, 623H > 236236H","C","5690","6","3","Moyen",1,""]]},
+  {t:"Wall Splat et Stun", c:"", k:[
+   ["Wall Splat, 5H > 214M, 623H","C","2176","0","0","Facile",0,""],
+   ["DC, j.H, 5H > Denjin 214H, 214L, 623L","C","2670","0","0","Facile",2,""],
+   ["DC, j.H, 5H > Denjin 214XX, marche/dash 2H > 214M, 623H (> 236236H)","C","3020 (5020)","2","0 (3)","Facile",2,""],
+   ["DC, 214214M chargée à fond, PDR 2H > DRC 2H > 2S, 623H / 236236L","C","4684 / 4888","~4","2 / 3","Moyen",2,""]]}
+ ]},
+ {t:"Punitions max damage", c:"", g:[
+  {t:"Toutes ressources", c:"", k:[
+   ["PC 214XX, 5M > (DRC 5H, 5M)x2 > 623H > 236236H","P","5954","6","3","Moyen",0,""],
+   ["PC 214XX, 5M > A[4S], PDR A[M] > DRC 2H > 2S, 623H > 236236H","C","6206","6","3","Difficile",0,""],
+   ["PC A[H], 5H > Denjin 214XX, 5H > (DRC 5H, 5M)x2 > 623H > 236236H","P","6280","6","3","Moyen",1,""],
+   ["PC A[H], 5H > Denjin 214XX, 5H > A[4S], PDR A[M] > DRC 2H > 2S, 623H > 236236H","P","6442","6","3","Moyen",1,""],
+   ["PC A[H], 5H > Denjin 214XX > 214214M (partiel), PDR 2H > DRC 2H > 2S, 236236L","P","6168","6","3","Difficile",1,"Un délai après la SA2 peut éviter le Burnout."]]}
+ ]}
+]};
+
+const state={v:"classic",p:"all",drive:false,sup:false,dj:false,q:""};
+const posLabel=s=>s.replace(/\bP\b/g,"Partout").replace(/\bM\b/g,"Milieu").replace(/\bC\b/g,"Coin");
+const minNum=s=>{const m=String(s).match(/\d+([.,]\d+)?/g);return m?Math.min(...m.map(x=>parseFloat(x.replace(",",".")))):null};
+function matches(k){
+  const [n,pos,,drv,sa,,dj]=k;
+  if(state.p==="M"&&!/\bP\b|\bM\b/.test(pos))return false;
+  if(state.p==="C"&&!/\bP\b|\bC\b|coin/i.test(pos))return false;
+  if(state.drive&&minNum(drv)!==0)return false;
+  if(state.sup&&minNum(sa)!==0)return false;
+  if(state.dj&&dj===1)return false;
+  if(state.q&&!(n+" "+(k[7]||"")).toLowerCase().includes(state.q))return false;
+  return true;
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function comboHTML(k){
+  const [n,pos,dmg,drv,sa,dif,dj,note]=k;
+  const corner=/^C|coin/i.test(pos)&&!/\bP\b/.test(pos);
+  let chips=`<span class="chip c-pos${corner?" corner":""}">${esc(posLabel(pos))}</span>`+
+    `<span class="chip c-dmg">${esc(dmg)} dmg</span>`+
+    `<span class="chip c-drv">Drive ${esc(drv)}</span>`+
+    `<span class="chip c-sa">Super ${esc(sa)}</span>`;
+  if(dj===1)chips+=`<span class="chip c-dj">Denjin requis</span>`;
+  if(dj===2)chips+=`<span class="chip c-dj">Donne Denjin</span>`;
+  if(dj===3)chips+=`<span class="chip c-dj">Denjin selon variante</span>`;
+  chips+=`<span class="chip c-dif">${esc(dif)}</span>`;
+  return `<div class="combo"><code>${esc(n)}</code><div class="chips">${chips}</div>${note?`<div class="note">${esc(note)}</div>`:""}</div>`;
+}
+const filtering=()=>state.p!=="all"||state.drive||state.sup||state.dj||state.q;
+let openSet=new Set();
+function render(){
+  const tree=document.getElementById("tree");
+  tree.querySelectorAll("details").forEach(d=>{if(d.open)openSet.add(d.dataset.id);else openSet.delete(d.dataset.id)});
+  let html="",total=0;
+  DATA[state.v].forEach((b,i)=>{
+    let inner="",bc=0;
+    b.g.forEach((g,j)=>{
+      const ks=g.k.filter(matches);if(!ks.length)return;bc+=ks.length;
+      const id=`${state.v}-${i}-${j}`,op=filtering()||openSet.has(id);
+      inner+=`<li class="lv2"><details data-id="${id}"${op?" open":""}><summary><span class="t">${esc(g.t)}</span><span class="n">${ks.length}</span>${g.c?`<span class="cond">${esc(g.c)}</span>`:""}</summary><ul class="kids">${ks.map(k=>`<li>${comboHTML(k)}</li>`).join("")}</ul></details></li>`;
+    });
+    if(!bc)return;total+=bc;
+    const id=`${state.v}-${i}`,op=filtering()||openSet.has(id)||(!openSet.size&&i===0);
+    html+=`<li class="lv1"><details data-id="${id}"${op?" open":""}><summary><span class="t">${esc(b.t)}</span><span class="n">${bc} combos</span>${b.c?`<span class="cond">${esc(b.c)}</span>`:""}</summary><ul class="kids">${inner}</ul></details></li>`;
+  });
+  tree.innerHTML=html;
+  document.getElementById("empty").hidden=total>0;
+  document.getElementById("count").textContent=`${total} combos`;
+  document.getElementById("rootname").textContent=`Ryu · ${state.v==="classic"?"Classic":"Modern"}`;
+}
+function seg(id,key,attr){document.getElementById(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  document.querySelectorAll(`#${id} button`).forEach(x=>x.setAttribute("aria-pressed",x===b));state[key]=b.dataset[attr];
+  if(key==="v")openSet=new Set();render()})}
+seg("ver","v","v");seg("pos","p","p");
+[["f-drive","drive"],["f-super","sup"],["f-denjin","dj"]].forEach(([id,k])=>document.getElementById(id).addEventListener("change",e=>{state[k]=e.target.checked;render()}));
+document.getElementById("q").addEventListener("input",e=>{state.q=e.target.value.trim().toLowerCase();render()});
+document.getElementById("open-all").addEventListener("click",()=>document.querySelectorAll("#tree details").forEach(d=>d.open=true));
+document.getElementById("close-all").addEventListener("click",()=>{document.querySelectorAll("#tree details").forEach(d=>d.open=false);openSet=new Set(["none"])});
+render();
+
+/* ---------- Frame data ---------- */
+/* [coup, nom, dégâts, startup, actives, recovery, total, hit, garde, guard, cancel, PC, perf parry, DRC hit/garde, invu/armure, remarque] */
+const FD=[
+ {t:"Normaux et target combos",k:[
+  ["5LP","Jab debout","300","4","3","7","13","+4","-1","LH","Chn Sp SA","+8","-8","+4 / -1","","Chaîne en 5LP/2LP/2LK"],
+  ["5MP","Strong debout","600","6","4","11(13)","20(22)","+7","-1","LH","Sp SA TC","+11","-13","+12 / +4","","Starter principal ; link en 2MP, ou 4HP au contact"],
+  ["5HP","Fierce debout","800","10","5","18","32","+4","-2","LH","Sp SA TC","+8","-21","+17 / +11","","Force debout ; HP Hashogeki sur PC"],
+  ["5LK","Short debout","300","5","3","11","18","+2","-4","LH","Sp SA","+6","-12","+5 / -1","","Bonne portée ; DRC après la 2e frame active"],
+  ["5MK","Forward debout","700","9","3","18","29","+4","-4","LH","-","+8","-19","","","Jambe avant surélevée f4-11 (évite des lows)"],
+  ["5HK","Roundhouse debout","900","12","4","20(22)","35","+9","+1","LH","-","KD +84 Crumple","-21","","","Rate les accroupis ; crumple sur PC"],
+  ["2LP","Jab accroupi","300","4","2","9","14","+4","-1","LH","Chn Sp SA","+8","-9","+5 / 0","","Plus de hitstun que 5LP"],
+  ["2MP","Strong accroupi","600","6","4","13(15)","22(24)","+5","0","LH","Sp SA","+9","-15","+12 / +7","","Link en 5LK"],
+  ["2HP","Fierce accroupi","800","9","6","21(22)","35","+1","-7","LH","Sp SA","+5","-24","+17 / +9","Anti-air (poing f9, tête f10-14)","Force debout ; seule la 1re frame active est cancelable"],
+  ["2LK","Short accroupi","200","5","2","10","16","+3","-1","L","Chn","+7","-10","","","Low de confirm"],
+  ["2MK","Forward accroupi","500","8","3","19","29","+1","-6","L","Sp SA","+5","-20","+11 / +4","","DRC seulement après les frames actives"],
+  ["2HK","Balayette","900","9","3","23(29)","34(40)","KD +40","-12","L","-","HKD +47","-28","","","Recovery fixe de 29f en garde"],
+  ["j.LP","Jab sauté","300","4","10","3 land","-","+4(+9)","0(+5)","H","-","+8(+13)","-7(-2)","","","Instant overhead flou possible"],
+  ["j.MP","Strong sauté","350x2","8","2,3","3 land","-","+10(+13)","+6(+9)","H","Sp","+14(+17)","-5(-2)","","Invu projectiles (bas) f8-22","Deux hits cancelables en Air Tatsu ; juggle"],
+  ["j.HP","Fierce sauté","800","9","6","3 land","-","+8(+15)","+4(+11)","H","-","+12(+19)","-9(-2)","","Invu projectiles (bas) f9-23","Spike KD sur CH contre un aérien"],
+  ["j.LK","Short sauté","300","6","10","3 land","-","+5(+10)","+1(+6)","H","-","+9(+14)","-7(-2)","","","Cross-up"],
+  ["j.MK","Forward sauté","500","7","6","3 land","-","+8(+13)","+4(+9)","H","-","+12(+17)","-7(-2)","","Invu projectiles (bas) f7-20","Meilleur cross-up"],
+  ["j.HK","Roundhouse sauté","800","10","8","3 land","-","+9(+15)","+5(+11)","H","-","+13(+19)","-8(-2)","","Invu projectiles (bas) f10-17","Jump-in mi-distance"],
+  ["6MP","Collarbone Breaker","300x2","20","1,3","19","42","+3","-3","H,H","-","+7","-21","","","Overhead ; +3 en garde après DR"],
+  ["6HP","Solar Plexus Strike","400x2","20","2,3","16","40","+6","+3","LH","-","+10","-19","","","+3 en garde ; link en 2MP"],
+  ["4HP","Short Uppercut","800","7","4","25(26)","35(36)","+1","-13","LH","Sp SA","+5","-27","+20 / +6","","Force debout ; très courte portée"],
+  ["4HK","Kick 2 hits","400x2","10(20)","5(5)3","21","43","0","-4","LH","Sp SA","+4","-22","+10(+14) / +4(+10)","","2e hit : rebond au sol sur aérien"],
+  ["6HK","Hop kick","800","16","4","20","39","+2","-4","LH","Sp*","+6","-22","","Low crush f13-20","Cancel en Air Tatsu (hit et garde)"],
+  ["5HP~HK","High Double Strike","1000","9","4","20","32","KD +39","-8(-18)","LH","-","KD +37","","","","Cancel en Denjin (2P) sur hit"],
+  ["5MP~LK","Fuwa (2 coups)","300","5","3","16","23","+1","-4","LH","TC","+5","","","","Piège d'espacement"],
+  ["5MP~LK~HK","Fuwa Triple Strike","900(720)","17","4","20","40","KD +36","-8","LH","-","KD +36","-22","","","Cancel en Denjin (2P) sur hit ; trou de 6f avant HK en garde"]]},
+ {t:"Drive et choppes",k:[
+  ["LPLK","Choppe avant","1200 (2040)","5","3","23","30","KD +17","-","T","-","HKD +17","","","","Boucle de choppes au coin possible"],
+  ["4LPLK","Choppe arrière","1200 (2040)","5","3","23","30","KD +11","-","T","-","HKD +11","","","","Change de côté"],
+  ["HPHK","Drive Impact","800","26","2","35","62","KD +35 / Wall Splat KD +65","-3 / Wall Splat HKD +72","LH","-","Crumple","-35","","Armure f1-27",""],
+  ["6HPHK","Drive Reversal (garde)","500 récup.","20","3","26(31)","48(53)","KD +23","-6","LH","-","KD +23","-27","","Invu f1-22","Pendant le blockstun"],
+  ["6HPHK","Drive Reversal (réveil)","500 récup.","18","3","26(31)","46(51)","KD +23","-6","LH","-","KD +23","-27","","Invu f1-20","En maintenant au réveil"],
+  ["MPMK","Drive Parry","-","1","12 ou maintenu","33(1)(11)","45(3)","-","-","-","-","","","","Invu 6f après Perfect Parry","Perfect Parry : 1f de recovery"],
+  ["MPMK~66","Parry Drive Rush","-","3+8","-","15(37)","26(48)","-","-","-","-","","","","","1 barre ; +4 sur les normaux"],
+  ["66 (cancel)","Drive Rush Cancel","-","9","-","15(37)","24(46)","-","-","-","-","","","","","3 barres ; +4 sur les normaux"]]},
+ {t:"Spéciaux",k:[
+  ["236LP","Hadoken L","700","16","-","31","47","+2","-5","LH","SA3","+6","-21","","",""],
+  ["236MP","Hadoken M","700","14","-","33","47","0","-7","LH","SA3","+4","-23","","",""],
+  ["236HP","Hadoken H","700","12","-","35","47","-2","-9","LH","SA3","+2","-25","","",""],
+  ["236PP","OD Hadoken","500x2","12","-","28","40","KD +54","-1","LH","SA2 SA3","KD +54","-7","","","Juggle"],
+  ["D.236HP","Hadoken Denjin","500x2","12","-","28","40","KD +54","-1","LH","SA3","KD +54","-7","","","Consomme Denjin"],
+  ["D.236PP","OD Hadoken Denjin","400x3 (1200)","12","-","26","38","KD +57","+2","LH","SA2 SA3","KD +57","+6","","","Consomme Denjin"],
+  ["623LP","Shoryuken L","1100(800)","5","10","21+12 land","47","KD +38","-23","LH","SA3","KD +38","-41","","Invu air f1-14",""],
+  ["623MP","Shoryuken M","1200(800)","6","10","30+12 land","57","KD +34","-32","LH","SA3","KD +34","-50","","Invu air f1-9",""],
+  ["623HP","Shoryuken H","1400(800)","7","10","34+12 land","62","KD +37(+29)","-39","LH","SA3","KD +37(+29)","-57","","Invu air f1-8","Lance la SA3 plus vite"],
+  ["623PP","OD Shoryuken","800x2","6","2,8","37+15 land","67","KD +29","-40","LH","-","KD +29","-60","","Invu totale f1-8","Reversal"],
+  ["214LK","Tatsu L","900","12","3","14+18 land","46","KD +35","-15","LH","-","KD +35","-33","","","Touche les accroupis"],
+  ["214MK","Tatsu M","1000","14","2(13)2","11+20 land","61","KD +23(+38)","-13(-28)","LH","-","KD +23(+38)","-31","","Invu projectiles (bas) f10-41",""],
+  ["214HK","Tatsu H","1200","16","2(13)2(13)2","14+17 land","78","KD +20(+35)(+50)","-13(-28)(-43)","LH","-","KD +20(+35)(+50)","-31","","Invu projectiles (bas) f10-61","Change de côté"],
+  ["214KK","OD Tatsu","200x5","13","2(4)2(4)2(3)2(4)2","10+13 land","60","KD +57","-14(-32)","LH","-","KD +57","-23","","","Aspire au 1er hit ; juggle"],
+  ["j.214K","Air Tatsu","900","11","2(5)2(6)2","16 land","-","KD +46(+52)","-6(+3)","LH","-","KD +46(+52)","-21(-15)","","","Saut avant ; pas un overhead"],
+  ["6HK~214K","Air Tatsu (6HK)","900","11","3","13+16 land","42","KD +38","-16","LH","-","KD +38","","","","Bonne oki au milieu"],
+  ["j.214KK","OD Air Tatsu","1500","11","2(1)3(1)3(1)3(2)2","16 land","-","KD +45(+51)","-29(-32)","LH","-","KD +45(+51)","-46(-43)","","",""],
+  ["6HK~214KK","OD Air Tatsu (6HK)","1500","11","2(1)2(2)2(2)2(3)2","12+16 land","56","KD +47(+48)","-30","LH","-","KD +47(+48)","","","","Touche les accroupis"],
+  ["236LK","Donkey Kick L","1100","14","6","22","41","KD +42~46","-11(-7)","LH","SA3","KD +42~46","-26(-22)","","","Safe jump auto au coin"],
+  ["236MK","Donkey Kick M","1200","18","9","19(22)","45(48)","KD +40~46","-8(-2)","LH","SA3","KD +40~46","-26(-20)","","","Safe à bonne distance"],
+  ["236HK","Donkey Kick H","1300","27","9","15","50","KD +45~51","-3(+5)","LH","SA3","KD +96~102 Tumble","-22(-16)","","","Juggle 623MP/623PP/SA3 au coin"],
+  ["236KK","OD Donkey Kick","800","17","5","33","54","Wall Bounce +49(65)","-18","LH","SA2 SA3","Wall Bounce +49(65)","-36","","",""],
+  ["214LP","Hashogeki L","700","12","6","18","35","+2","-3","LH","SA3","KD +59 Spin","-22","","","Lance sur CH ; annule les projectiles simples"],
+  ["214MP","Hashogeki M","800","19","6","17","41","+2","-6","LH","SA3","KD +58 Spin","-21","","","Lance sur CH"],
+  ["214HP","Hashogeki H","400x2","30","6","19","54","KD +61 Spin","+2","LH","SA3","KD +61 Spin","-23","","","Lance toujours"],
+  ["214PP","OD Hashogeki","1100","18","6","20","43","+3","+3","LH","SA2 SA3","+7","-24","","",""],
+  ["D.214HP","Hashogeki Denjin","400x2","20","6","19(31)","44","KD +62 Spin","+3","LH","SA3","KD +62 Spin","-36","","","Combote depuis les Mediums"],
+  ["D.214PP","OD Hashogeki Denjin","800","18","6","19","42","KD +87 Crumple","+4","LH","SA2 SA3","KD +91 Crumple","-23","","","Crumple +14 avant d'être aérien"],
+  ["22P","Denjin Charge","-","50","-","2","52","-","-","-","-","","","","","Charge acquise frame 50 ; 1 stock max ; aussi en 2P après 5HP~HK ou 5MP~LK~HK"]]},
+ {t:"Super Arts",k:[
+  ["236236P","SA1 Shinkuu Hadoken","2000","7","-","79","86","KD +26","-24","LH","-","KD +26","-25","","Invu frappe/choppe f1-8",""],
+  ["D.236236P","SA1 Denjin Hadoken","2400","7","-","82","89","KD +27","-24","LH","-","KD +27","+5","","Invu frappe/choppe f1-8","Consomme Denjin"],
+  ["214214P","SA2 niv. 1","2800","12","6","39","56","KD +20","-20","LH","-","KD +20","-43","","Invu totale f1-13",""],
+  ["D.214214P","SA2 Denjin niv. 1","3200","12","6","39","56","KD +20","-20","LH","-","KD +20","-43","","Invu totale f1-13",""],
+  ["214214{P}","SA2 niv. 2","2900","18~","6","39","62~","KD +20","-20","LH","-","KD +20","-43","","Invu totale f1-9",""],
+  ["D.214214{P}","SA2 Denjin niv. 2","3300","18~","6","39","62~","KD +78 Tumble","-20","LH","-","KD +78 Tumble","-43","","Invu totale f1-9","Tumble : juggle possible"],
+  ["214214[P]","SA2 niv. 3","3000","50~","6","39","94~","KD +78 Tumble","-20","LH","-","KD +78 Tumble","-43","","Invu totale f1-9","Gros pushback en garde"],
+  ["D.214214[P]","SA2 Denjin niv. 3","3400","50~","6","39","94~","KD +78 Tumble","-20","LH","-","KD +78 Tumble","-43","","Invu totale f1-9",""],
+  ["236236K","SA3 Shin Shoryuken","4000 (3600)","5(2)","12","32+39 land","87","HKD +14","-50(-54)","LH","-","HKD +14","-74","","Invu totale f1-16","Rend ~2,2 barres de Drive"],
+  ["236236K (CA)","Critical Art","4500 (4400)","5(2)","12","32+39 land","87","HKD +14","-50(-54)","LH","-","HKD +14","-74","","Invu totale f1-16","Sous 25 % de vie"]]}
+];
+const FCOLS=["Coup","Nom","Dégâts","Startup","Actives","Recovery","Total","Hit","Garde","Type","Cancel","PC","Perf. Parry","DRC hit / garde","Invu / armure","Remarque"];
+const fstate={s:"all",safe:false,q:""};
+function advCell(v){const s=esc(v);if(/^(KD|HKD|Crumple|Wall|.*Tumble)/.test(v))return `<span class="kd">${s}</span>`;
+  const m=String(v).match(/^([+-]?\d+)/);if(!m)return s;const n=+m[1];return n>0?`<span class="pos">${s}</span>`:n<0?`<span class="neg">${s}</span>`:s}
+function blockNum(v){const m=String(v).match(/^([+-]?\d+)/);return m?+m[1]:null}
+function renderFD(){
+  let html="",total=0;
+  FD.forEach((sec,i)=>{
+    if(fstate.s!=="all"&&+fstate.s!==i)return;
+    const rows=sec.k.filter(r=>{
+      if(fstate.safe){const b=blockNum(r[8]);if(b===null||b<-3)return false}
+      if(fstate.q&&!(r[0]+" "+r[1]+" "+r[15]).toLowerCase().includes(fstate.q))return false;return true});
+    if(!rows.length)return;total+=rows.length;
+    html+=`<section class="fsec"><h3>${esc(sec.t)} <small>${rows.length} coups</small></h3><div class="tscroll"><table class="fd"><thead><tr>${FCOLS.map(c=>`<th scope="col">${c}</th>`).join("")}</tr></thead><tbody>`+
+      rows.map(r=>`<tr>${r.map((v,j)=>{const cls=j===1?' class="nm"':j===15?' class="nt"':"";const val=[7,8,11,12].includes(j)?advCell(v):esc(v);return `<td${cls}>${val}</td>`}).join("")}</tr>`).join("")+
+      `</tbody></table></div></section>`;
+  });
+  document.getElementById("frames").innerHTML=html||'<p class="empty">Aucun coup ne correspond.</p>';
+  document.getElementById("fcount").textContent=`${total} coups`;
+}
+document.getElementById("fsec").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  document.querySelectorAll("#fsec button").forEach(x=>x.setAttribute("aria-pressed",x===b));fstate.s=b.dataset.s;renderFD()});
+document.getElementById("f-safe").addEventListener("change",e=>{fstate.safe=e.target.checked;renderFD()});
+document.getElementById("fq").addEventListener("input",e=>{fstate.q=e.target.value.trim().toLowerCase();renderFD()});
+renderFD();
+
+function showTab(name){
+  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===name));
+  document.getElementById("tab-combos").hidden=name!=="combos";
+  document.getElementById("tab-frames").hidden=name!=="frames";
+}
+document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b)showTab(b.dataset.tab)});
+if(location.hash==="#frames")showTab("frames");
+</script>
+
+</body>
+</html>
